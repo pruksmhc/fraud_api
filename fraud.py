@@ -23,7 +23,8 @@ NUM = 400
 # This is a constant that varies the amount being tested on. 
 def extract_features():
 	"""
-	
+	This function extracts features 
+	Check which positive sare already used
 
 	"""
 	scaler = StandardScaler()
@@ -35,16 +36,19 @@ def extract_features():
 	Y_test_pos  = pd.DataFrame()
 	Y_train_pos = pd.DataFrame()
 	Y_train_neg = pd.DataFrame()
+	used_indices = [] # list of IDs 
 
 	with open("eventusers.csv", "rt") as csvfile:
 		reader = csv.reader(csvfile, delimiter=',', quotechar='|')
-		index = 1
+		index = 0
 		snaps = pd.read_csv("snapshots.csv") 
 		for row in reader:
-			if index == 1:
+			if index == 0:
 				index += 1
 			elif index < NUM:
 				banned = row[-1]
+				if (banned == "true"):
+					used_indices.append(index) # append User Id
 				curr_id = row[0]
 				if (row[7] == "false"):
 					sn = 0
@@ -73,7 +77,9 @@ def extract_features():
 						Y_test_neg = Y_test_neg.append({'res': 0},ignore_index=True )
 				index += 1
 	event = pd.read_csv("eventusers.csv") 
+	event = event.drop(used_indices)
 	eventh = event.loc[event['banned'] == True]
+	eventh = eventh.loc[~eventh.isin(used_indices)]
 	if (len( Y_train_pos) < len(Y_train_neg)):
 		num_fill = len(Y_train_neg) - len( Y_train_pos) 
 		eventha = eventh.head(num_fill)
@@ -90,7 +96,7 @@ def extract_features():
 			Y_train_pos = Y_train_pos.append({'res': 1},ignore_index=True )
 	if (len(Y_test_pos) < len(Y_test_neg)):
 		num_fill = len(Y_test_neg) - len( Y_test_pos) 
-		eventhb = eventh.head(num_fill)
+		eventhb = eventh.tail(num_fill)
 		for index, row in eventhb.iterrows():
 			banned = row['banned']
 			curr_id = row['_id']
