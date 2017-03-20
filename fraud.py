@@ -20,7 +20,12 @@ import time
 
 """
 NUM = 400
+# This is a constant that varies the amount being tested on. 
 def extract_features():
+	"""
+	
+
+	"""
 	scaler = StandardScaler()
 	X_train_pos = pd.DataFrame(columns=[  'lastSRSCount', 'snooze', 'num_seats', ])
 	X_train_neg =  pd.DataFrame(columns=[  'lastSRSCount', 'snooze', 'num_seats'])
@@ -105,11 +110,7 @@ def extract_features():
 	return X_train, Y_train, X_test_neg, Y_test_neg, X_test_pos, Y_test_pos
 
 
-
 def nn_one(X_train, Y_train):
-	#X = [[0., [0., 0.]], [1., [0., 0.] ]]
-	#Y = [0,1]
-
 	clf = MLPClassifier(solver='lbfgs', alpha=1e-5,
 		hidden_layer_sizes=(30,30,30), random_state=1)
 	clf.fit(X_train, Y_train)
@@ -122,8 +123,6 @@ def test(classifier_funcs, X_test, Y_test):
 		end = time.time()
 		print("Time to predict in seconds")
 		print(end-start)
-
-
 
 X_train, Y_train, X_test_neg, Y_test_neg, X_test_pos, Y_test_pos = extract_features() 
 print("TEST")
