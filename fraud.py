@@ -21,10 +21,10 @@ import time
 """
 def extract_features():
 	scaler = StandardScaler()
-	X_train_pos = pd.DataFrame(columns=[  'lastSRSCount', 'snooze'])
-	X_train_neg = pd.DataFrame(columns=[  'lastSRSCount', 'snooze'])
-	X_test_neg = pd.DataFrame(columns=[  'lastSRSCount', 'snooze'])
-	X_test_pos =  pd.DataFrame(columns=[ 'lastSRSCount', 'snooze'])
+	X_train_pos = pd.DataFrame(columns=[  'lastSRSCount', 'snooze', 'num_seats'])
+	X_train_neg =  pd.DataFrame(columns=[  'lastSRSCount', 'snooze', 'num_seats'])
+	X_test_neg =  pd.DataFrame(columns=[  'lastSRSCount', 'snooze', 'num_seats'])
+	X_test_pos =   pd.DataFrame(columns=[  'lastSRSCount', 'snooze', 'num_seats'])
 	Y_test_neg =  pd.DataFrame()
 	Y_test_pos  = pd.DataFrame()
 	Y_train_pos = pd.DataFrame()
@@ -33,20 +33,34 @@ def extract_features():
 	with open("eventusers.csv", "rt") as csvfile:
 		reader = csv.reader(csvfile, delimiter=',', quotechar='|')
 		index = 1
+		snaps = pd.read_csv("snapshots.csv") 
 		for row in reader:
-			#rint(row)
+			print("row")
 			if index == 1:
 				index += 1
-			elif index < 100:
-				print(row)
+			else:
 				banned = row[-1]
+				curr_id = row[0]
 				SRS_string = ''
 				ind = 8
+				SRS_string = ''
+				ind = 8
+				while "]" not in row[ind]:
+					SRS_string += row[ind] 
+					ind += 1
+				#print("done")
+				SRS_string += row[ind]
+				SRS_string = SRS_string.replace("\"\"\"", "\",")
+				#print(SRS_string)
+				SRS_string = ast.literal_eval(SRS_string)
 				if (row[7] == "false"):
 					sn = 0
 				else:
 					sn = 1
-				curr = { 'lastSRSCount': row[6], 'snooze': sn }
+
+				snapsh = snaps.loc[snaps['userId'] == curr_id]		
+				curr = { 'lastSRSCount': row[6], 'snooze': sn, 'num_seats': len(snapsh) }
+				# Making sure the number of 
 				if random.random() > 0.5:
 					if (banned == "true"):
 						X_train_pos = X_train_pos.append(curr, ignore_index=True)
@@ -61,13 +75,11 @@ def extract_features():
 					else:
 						X_test_neg = X_test_neg.append(curr,ignore_index=True)
 						Y_test_neg = Y_test_neg.append({'res': 0},ignore_index=True )
-			X_train_neg = X_train_neg[:len(X_train_pos)] # half neg, half pos examples
-			Y_train_neg = Y_train_neg[:len(X_train_pos)]
-			X_train = X_train_neg.append(X_train_pos)
-			Y_train = Y_train_neg.append(Y_train_pos)
-			index += 1
-		else:
-			return X_train, Y_train, X_test_neg, Y_test_neg, X_test_pos, Y_test_pos
+				X_train_neg = X_train_neg[:len(X_train_pos)] # half neg, half pos examples
+				Y_train_neg = Y_train_neg[:len(X_train_pos)]
+				X_train = X_train_neg.append(X_train_pos)
+				Y_train = Y_train_neg.append(Y_train_pos)
+		return X_train, Y_train, X_test_neg, Y_test_neg, X_test_pos, Y_test_pos
 
 
 
@@ -92,13 +104,10 @@ def test(classifier_funcs, X_test, Y_test):
 
 X_train, Y_train, X_test_neg, Y_test_neg, X_test_pos, Y_test_pos = extract_features() 
 print(X_train)
-#X_train = np.array(X_train).reshape((len(X_train), 1))
-#Y_train = np.array(Y_train).reshape((len(Y_train), 1))
 print(len(X_train))
 print(len(Y_train))
 print("seperate data")
 classifiers = []
-# foR x TRAIN, YOU CAN JUST PUT IT STRAIGHT IN. 
 clsfr1 = nn_one(X_train, Y_train)
 print("training done")
 classifiers.append(clsfr1)
