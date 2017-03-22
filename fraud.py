@@ -14,11 +14,12 @@ import time
 
 # Not using facebook or twitwter yet. 
 """ Ways to approach:
-1. Neural networks with teh current fraud
+1. Neural networks with the current fraud
 2. One neural net for each feature, then join in a massive NN
 3. Use others, like random forest
 
 """
+# one to hot encoding 
 NUM = 400
 # This is a constant that varies the amount being tested on. 
 def extract_features():
@@ -28,10 +29,10 @@ def extract_features():
 
 	"""
 	scaler = StandardScaler()
-	X_train_pos = pd.DataFrame(columns=[  'lastSRSCount', 'snooze', 'num_seats', ])
-	X_train_neg =  pd.DataFrame(columns=[  'lastSRSCount', 'snooze', 'num_seats'])
-	X_test_neg =  pd.DataFrame(columns=[  'lastSRSCount', 'snooze', 'num_seats'])
-	X_test_pos =   pd.DataFrame(columns=[  'lastSRSCount', 'snooze', 'num_seats'])
+	X_train_pos = pd.DataFrame(columns=[  'lastSRSCount', 'num_seats', ])
+	X_train_neg =  pd.DataFrame(columns=[  'lastSRSCount',  'num_seats'])
+	X_test_neg =  pd.DataFrame(columns=[  'lastSRSCount',  'num_seats'])
+	X_test_pos =   pd.DataFrame(columns=[  'lastSRSCount',  'num_seats'])
 	Y_test_neg =  pd.DataFrame()
 	Y_test_pos  = pd.DataFrame()
 	Y_train_pos = pd.DataFrame()
@@ -57,7 +58,7 @@ def extract_features():
 
 				snapsh = snaps.loc[snaps['userId'] == curr_id]	
 
-				curr = { 'lastSRSCount': row[6], 'snooze': sn, 'num_seats': len(snapsh) }
+				curr = { 'lastSRSCount': row[6],  'num_seats': len(snapsh) }
 				# Making sure the number of 
 				# MAKE SURE THERE IS A ONE HERE. 
 				rand = random.random()
@@ -76,10 +77,10 @@ def extract_features():
 						X_test_neg = X_test_neg.append(curr,ignore_index=True)
 						Y_test_neg = Y_test_neg.append({'res': 0},ignore_index=True )
 				index += 1
+	# Dropping this. 
 	event = pd.read_csv("eventusers.csv") 
 	event = event.drop(used_indices)
 	eventh = event.loc[event['banned'] == True]
-	eventh = eventh.loc[~eventh.isin(used_indices)]
 	if (len( Y_train_pos) < len(Y_train_neg)):
 		num_fill = len(Y_train_neg) - len( Y_train_pos) 
 		eventha = eventh.head(num_fill)
@@ -91,7 +92,7 @@ def extract_features():
 			else:
 				sn = 1
 			snapsh = snaps.loc[snaps['userId'] == curr_id]	
-			curr = { 'lastSRSCount': row['lastSRSCount'], 'snooze': sn, 'num_seats': len(snapsh) }
+			curr = { 'lastSRSCount': row['lastSRSCount'],  'num_seats': len(snapsh) }
 			X_train_pos = X_train_pos.append(curr, ignore_index=True)
 			Y_train_pos = Y_train_pos.append({'res': 1},ignore_index=True )
 	if (len(Y_test_pos) < len(Y_test_neg)):
@@ -105,7 +106,7 @@ def extract_features():
 			else:
 				sn = 1
 			snapsh = snaps.loc[snaps['userId'] == curr_id]	
-			curr = { 'lastSRSCount': row['lastSRSCount'], 'snooze': sn, 'num_seats': len(snapsh) }
+			curr = { 'lastSRSCount': row['lastSRSCount'],'num_seats': len(snapsh) }
 			X_test_pos = X_test_pos.append(curr, ignore_index=True)
 			Y_test_pos = Y_test_pos.append({'res': 1},ignore_index=True )
 
@@ -130,6 +131,7 @@ def test(classifier_funcs, X_test, Y_test):
 		print("Time to predict in seconds")
 		print(end-start)
 
+# Sure I'll be there soon. 
 X_train, Y_train, X_test_neg, Y_test_neg, X_test_pos, Y_test_pos = extract_features() 
 print("TEST")
 #print(X_train)
