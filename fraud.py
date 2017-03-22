@@ -7,6 +7,7 @@ import random
 import numpy as np
 import ast
 import time
+from collections import defaultdict
 """ Goal: Detect fruad, where requesting changes in stadium > taking pictures < sharing on FB"""
 # Shindig at 5 pm on Saturday
 # Try various appraoches to neaurl networks - feeding all 3 into neural networks,, 
@@ -17,11 +18,33 @@ import time
 1. Neural networks with the current fraud
 2. One neural net for each feature, then join in a massive NN
 3. Use others, like random forest
+4. nueral network with the the number of seats - onehotencoder 
 
 """
+
+def parse_seats(seats):
+	indiv_seats = {}
+	seat_num = seats.split(",")
+	for s in seat_num:
+		s = s.replace("[", "")
+		s = s.replace("]", "")
+		s = s.split("\"")
+		for se in s:
+			if ((se is not "\"") and (se is not " ") and (se is not "")):
+				if indiv_seats.get(se) is None:
+					indiv_seats[se] = True
+	return indiv_seats
+
+def replace_value_with_definition(value_to_find, definition, current_dict):
+    for key, value in current_dict.items():
+        if value == value_to_find:
+            current_dict[key] = definition
+    return current_dict
+
 # one to hot encoding 
-NUM = 400
+NUM = 100
 # This is a constant that varies the amount being tested on. 
+
 def extract_features():
 	"""
 	This function extracts features 
@@ -29,21 +52,35 @@ def extract_features():
 
 	"""
 	scaler = StandardScaler()
-	X_train_pos = pd.DataFrame(columns=[  'lastSRSCount', 'num_seats', ])
-	X_train_neg =  pd.DataFrame(columns=[  'lastSRSCount',  'num_seats'])
-	X_test_neg =  pd.DataFrame(columns=[  'lastSRSCount',  'num_seats'])
-	X_test_pos =   pd.DataFrame(columns=[  'lastSRSCount',  'num_seats'])
+	event = pd.read_csv("eventusers.csv") 
+	seats = np.unique(event["SRSstring"])
+	ind_seats = {}
+	for i in seats:
+		curr = parse_seats(i)
+		ind_seats = {**ind_seats, **curr}
+	# Now i'm here. 
+	seat_list = list(ind_seats.keys())
+	feature_vector = ['lastSRSCount', 'num_seats'] + seat_list
+
+	# Preprocessing for onehotENcoding - where the columns represent the time stmap 
+	X_train_pos = pd.DataFrame(columns=feature_vector)
+	X_train_neg = pd.DataFrame(columns=feature_vector)
+	X_test_neg =  pd.DataFrame(columns=feature_vector)
+	X_test_pos =  pd.DataFrame(columns=feature_vector)
 	Y_test_neg =  pd.DataFrame()
 	Y_test_pos  = pd.DataFrame()
 	Y_train_pos = pd.DataFrame()
 	Y_train_neg = pd.DataFrame()
 	used_indices = [] # list of IDs 
-
+	# TRy first without ordinal data, so it's fided size 
+	# THen if it doesn't work then doing  ordinal 
+	# there's. alot of zeros. 
 	with open("eventusers.csv", "rt") as csvfile:
 		reader = csv.reader(csvfile, delimiter=',', quotechar='|')
 		index = 0
 		snaps = pd.read_csv("snapshots.csv") 
 		for row in reader:
+			print(index)
 			if index == 0:
 				index += 1
 			elif index < NUM:
@@ -55,10 +92,22 @@ def extract_features():
 					sn = 0
 				else:
 					sn = 1
-
+				# getting teh number of seats taken 
+				local_seat_list = ind_seats
+				local_seats = row[8] 
+				seats_ordered = parse_seats(local_seats)
+				#print(seats_ordered)
+				for s in seats_ordered:
+					if local_seat_list.get(s) is None:
+						local_seat_list[s]  = 1
+					local_seat_list[s] += 1
+				local_seat_list = replace_value_with_definition(True, 0, local_seat_list)
+				#print(local_seat_list)
+				# here, you go there as well. 
 				snapsh = snaps.loc[snaps['userId'] == curr_id]	
 
 				curr = { 'lastSRSCount': row[6],  'num_seats': len(snapsh) }
+				curr = {**curr, **local_seat_list}
 				# Making sure the number of 
 				# MAKE SURE THERE IS A ONE HERE. 
 				rand = random.random()
@@ -77,10 +126,11 @@ def extract_features():
 						X_test_neg = X_test_neg.append(curr,ignore_index=True)
 						Y_test_neg = Y_test_neg.append({'res': 0},ignore_index=True )
 				index += 1
+
 	# Dropping this. 
-	event = pd.read_csv("eventusers.csv") 
 	event = event.drop(used_indices)
 	eventh = event.loc[event['banned'] == True]
+	# NOW, what you want to do is make it an ordnal data. 
 	if (len( Y_train_pos) < len(Y_train_neg)):
 		num_fill = len(Y_train_neg) - len( Y_train_pos) 
 		eventha = eventh.head(num_fill)
@@ -92,7 +142,19 @@ def extract_features():
 			else:
 				sn = 1
 			snapsh = snaps.loc[snaps['userId'] == curr_id]	
+			# can this get [] data. 
+			local_seats = row[8] 
+			local_seat_list = ind_seats
+			local_seats = row[8] 
+			seats_ordered = parse_seats(local_seats)
+			#print(seats_ordered)
+			for s in seats_ordered:
+				if local_seat_list.get(s) is None:
+					local_seat_list[s]  = 1
+				local_seat_list[s] += 1
+			local_seat_list = replace_value_with_definition(True, 0, local_seat_list)
 			curr = { 'lastSRSCount': row['lastSRSCount'],  'num_seats': len(snapsh) }
+			curr = {**curr, **local_seat_list}
 			X_train_pos = X_train_pos.append(curr, ignore_index=True)
 			Y_train_pos = Y_train_pos.append({'res': 1},ignore_index=True )
 	if (len(Y_test_pos) < len(Y_test_neg)):
@@ -106,7 +168,18 @@ def extract_features():
 			else:
 				sn = 1
 			snapsh = snaps.loc[snaps['userId'] == curr_id]	
+			local_seats = row[8] 
+			local_seat_list = ind_seats
+			local_seats = row[8] 
+			seats_ordered = parse_seats(local_seats)
+			#print(seats_ordered)
+			for s in seats_ordered:
+				if local_seat_list.get(s) is None:
+					local_seat_list[s]  = 1
+				local_seat_list[s] += 1
+			local_seat_list = replace_value_with_definition(True, 0, local_seat_list)
 			curr = { 'lastSRSCount': row['lastSRSCount'],'num_seats': len(snapsh) }
+			curr = {**curr, **local_seat_list}
 			X_test_pos = X_test_pos.append(curr, ignore_index=True)
 			Y_test_pos = Y_test_pos.append({'res': 1},ignore_index=True )
 
