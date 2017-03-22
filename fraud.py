@@ -19,7 +19,8 @@ from collections import defaultdict
 2. One neural net for each feature, then join in a massive NN
 3. Use others, like random forest
 4. nueral network with the the number of seats - onehotencoder 
-
+5. Use differences in the euclidean distance (for distance)
+6. Do num for facebook posts
 """
 
 def parse_seats(seats):
@@ -60,7 +61,7 @@ def extract_features():
 		ind_seats = {**ind_seats, **curr}
 	# Now i'm here. 
 	seat_list = list(ind_seats.keys())
-	feature_vector = ['lastSRSCount', 'num_seats'] + seat_list
+	feature_vector = ['lastSRSCount', 'num_seats', 'num_fb'] + seat_list
 
 	# Preprocessing for onehotENcoding - where the columns represent the time stmap 
 	X_train_pos = pd.DataFrame(columns=feature_vector)
@@ -75,10 +76,12 @@ def extract_features():
 	# TRy first without ordinal data, so it's fided size 
 	# THen if it doesn't work then doing  ordinal 
 	# there's. alot of zeros. 
+	# ther'es too many zeros. 
 	with open("eventusers.csv", "rt") as csvfile:
 		reader = csv.reader(csvfile, delimiter=',', quotechar='|')
 		index = 0
-		snaps = pd.read_csv("snapshots.csv") 
+		snaps = pd.read_csv("snapshots.csv")
+		fbpost= pd.read_csv("facebookposts.csv") 
 		for row in reader:
 			print(index)
 			if index == 0:
@@ -105,8 +108,9 @@ def extract_features():
 				#print(local_seat_list)
 				# here, you go there as well. 
 				snapsh = snaps.loc[snaps['userId'] == curr_id]	
+				fbp = fbpost.loc[snaps['userId'] == curr_id]	
 
-				curr = { 'lastSRSCount': row[6],  'num_seats': len(snapsh) }
+				curr = { 'lastSRSCount': row[6],  'num_seats': len(snapsh), 'num_fb': len(fbp)  }
 				curr = {**curr, **local_seat_list}
 				# Making sure the number of 
 				# MAKE SURE THERE IS A ONE HERE. 
@@ -142,6 +146,7 @@ def extract_features():
 			else:
 				sn = 1
 			snapsh = snaps.loc[snaps['userId'] == curr_id]	
+			fbp = fbpost.loc[snaps['userId'] == curr_id]
 			# can this get [] data. 
 			local_seats = row[8] 
 			local_seat_list = ind_seats
@@ -153,7 +158,7 @@ def extract_features():
 					local_seat_list[s]  = 1
 				local_seat_list[s] += 1
 			local_seat_list = replace_value_with_definition(True, 0, local_seat_list)
-			curr = { 'lastSRSCount': row['lastSRSCount'],  'num_seats': len(snapsh) }
+			curr = { 'lastSRSCount': row[6],  'num_seats': len(snapsh), 'num_fb': len(fbp)  }
 			curr = {**curr, **local_seat_list}
 			X_train_pos = X_train_pos.append(curr, ignore_index=True)
 			Y_train_pos = Y_train_pos.append({'res': 1},ignore_index=True )
@@ -168,6 +173,7 @@ def extract_features():
 			else:
 				sn = 1
 			snapsh = snaps.loc[snaps['userId'] == curr_id]	
+			fbp = fbpost.loc[snaps['userId'] == curr_id]
 			local_seats = row[8] 
 			local_seat_list = ind_seats
 			local_seats = row[8] 
@@ -178,7 +184,7 @@ def extract_features():
 					local_seat_list[s]  = 1
 				local_seat_list[s] += 1
 			local_seat_list = replace_value_with_definition(True, 0, local_seat_list)
-			curr = { 'lastSRSCount': row['lastSRSCount'],'num_seats': len(snapsh) }
+			curr = { 'lastSRSCount': row[6],  'num_seats': len(snapsh), 'num_fb': len(fbp)  }
 			curr = {**curr, **local_seat_list}
 			X_test_pos = X_test_pos.append(curr, ignore_index=True)
 			Y_test_pos = Y_test_pos.append({'res': 1},ignore_index=True )
