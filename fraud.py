@@ -26,13 +26,14 @@ from collections import defaultdict
 class FraudDetection:
 	NUM = 100
 	def __init__(self):
-		classifiers = []
-		X_train, Y_train, X_test_neg, Y_test_neg, X_test_pos, Y_test_pos = extract_features() 
-		clsfr1 = nn_one(X_train, Y_train)
-		classifiers.append(clsfr1)
-		test(classifiers, X_test_pos, Y_test_pos)
-		
+		self.classifiers = []
+		X_train, Y_train, X_test_neg, Y_test_neg, X_test_pos, Y_test_pos = self.extract_features() 
+		clsfr1 = self.train(X_train, Y_train)
+		self.classifiers.append(clsfr1)
+		self.test(self.classifiers, X_test_pos, Y_test_pos)
 
+# Yada went out at 4;40 
+# I need 
 	def parse_seats(self, seats):
 		indiv_seats = {}
 		seat_num = seats.split(",")
@@ -63,7 +64,7 @@ class FraudDetection:
 		seats = np.unique(event["SRSstring"])
 		ind_seats = {}
 		for i in seats:
-			curr = parse_seats(i)
+			curr = self.parse_seats(i)
 			ind_seats = {**ind_seats, **curr}
 		# Now i'm here. 
 		seat_list = list(ind_seats.keys())
@@ -89,10 +90,9 @@ class FraudDetection:
 			snaps = pd.read_csv("snapshots.csv")
 			fbpost= pd.read_csv("facebookposts.csv") 
 			for row in reader:
-				print(index)
 				if index == 0:
 					index += 1
-				elif index < NUM:
+				elif index < self.NUM:
 					banned = row[-1]
 					if (banned == "true"):
 						used_indices.append(index) # append User Id
@@ -104,13 +104,13 @@ class FraudDetection:
 					# getting teh number of seats taken 
 					local_seat_list = ind_seats
 					local_seats = row[8] 
-					seats_ordered = parse_seats(local_seats)
+					seats_ordered = self.parse_seats(local_seats)
 					#print(seats_ordered)
 					for s in seats_ordered:
 						if local_seat_list.get(s) is None:
 							local_seat_list[s]  = 1
 						local_seat_list[s] += 1
-					local_seat_list = replace_value_with_definition(True, 0, local_seat_list)
+					local_seat_list = self.replace_value_with_definition(True, 0, local_seat_list)
 					#print(local_seat_list)
 					# here, you go there as well. 
 					snapsh = snaps.loc[snaps['userId'] == curr_id]	
@@ -157,13 +157,13 @@ class FraudDetection:
 				local_seats = row[8] 
 				local_seat_list = ind_seats
 				local_seats = row[8] 
-				seats_ordered = parse_seats(local_seats)
+				seats_ordered = self.parse_seats(local_seats)
 				#print(seats_ordered)
 				for s in seats_ordered:
 					if local_seat_list.get(s) is None:
 						local_seat_list[s]  = 1
 					local_seat_list[s] += 1
-				local_seat_list = replace_value_with_definition(True, 0, local_seat_list)
+				local_seat_list = self.replace_value_with_definition(True, 0, local_seat_list)
 				curr = { 'lastSRSCount': row[6],  'num_seats': len(snapsh), 'num_fb': len(fbp)  }
 				curr = {**curr, **local_seat_list}
 				X_train_pos = X_train_pos.append(curr, ignore_index=True)
@@ -183,13 +183,13 @@ class FraudDetection:
 				local_seats = row[8] 
 				local_seat_list = ind_seats
 				local_seats = row[8] 
-				seats_ordered = parse_seats(local_seats)
+				seats_ordered = self.parse_seats(local_seats)
 				#print(seats_ordered)
 				for s in seats_ordered:
 					if local_seat_list.get(s) is None:
 						local_seat_list[s]  = 1
 					local_seat_list[s] += 1
-				local_seat_list = replace_value_with_definition(True, 0, local_seat_list)
+				local_seat_list = self.replace_value_with_definition(True, 0, local_seat_list)
 				curr = { 'lastSRSCount': row[6],  'num_seats': len(snapsh), 'num_fb': len(fbp)  }
 				curr = {**curr, **local_seat_list}
 				X_test_pos = X_test_pos.append(curr, ignore_index=True)
@@ -216,7 +216,9 @@ class FraudDetection:
 			print("Time to predict in seconds")
 			print(end-start)
 
-	# Sure I'll be there soon. 
-# Here, it'll go from 4:45 - 5 pm
+			
 
+
+if __name__ == "__main__":
+	model = FraudDetection()
 
