@@ -52,22 +52,26 @@ class FraudDetection:
 	            current_dict[key] = definition
 	    return current_dict
 
-	def calculate_curr(self, row, curr_id, snaps, fbpost, ind_seats):
+	def calculate_curr(self, seats, curr_id, snaps, fbpost, lastSRSCount, ind_seats):
 		"""
 		This function, from the CSVs, extracts the necessary data and puts it 
 		into curr, which is the form of the training data to be fed in. 
 		"""
+		snapsh = snaps.loc[snaps['userId'] == curr_id]	
+		fbp = fbpost.loc[fbpost['userId'] == curr_id]
+		seats = self.parse_seats(seats)
+		return self.calculate_final(seats, len(snapsh), len(fbp), lastSRSCount, ind_seats)
+
+	def calculate_final(self, seats_ordered, len_snapsh, len_fbp, lastSRSCount, ind_seats):
+		"""Ind_seats is a map : seat -> number
+			Seats is the string of seat SRS"""
 		local_seat_list = ind_seats
-		local_seats = row[8] 
-		seats_ordered = self.parse_seats(local_seats)
 		for s in seats_ordered:
 			if local_seat_list.get(s) is None:
 				local_seat_list[s]  = 1
 			local_seat_list[s] += 1
 		local_seat_list = self.replace_value_with_definition(True, 0, local_seat_list)
-		snapsh = snaps.loc[snaps['userId'] == curr_id]	
-		fbp = fbpost.loc[fbpost['userId'] == curr_id]	
-		curr = { 'lastSRSCount': row[6],  'num_seats': len(snapsh), 'num_fb': len(fbp)}
+		curr = { 'lastSRSCount': lastSRSCount,  'num_seats': len_snapsh, 'num_fb': len_fbp }
 		curr = {**curr, **local_seat_list}
 		return curr 
 
@@ -108,7 +112,7 @@ class FraudDetection:
 		for index, row in eventhb.iterrows():
 			banned = row['banned']
 			curr_id = row['_id']
-			curr = self.calculate_curr(row, curr_id, snaps, fbpost, ind_seats)
+			curr = self.calculate_curr(row[8], curr_id, snaps, fbpost, row[6], ind_seats)
 			X_test_pos = X_to_balance.append(curr, ignore_index=True)
 			Y_test_pos = Y_to_balance.append({'res': 1}, ignore_index=True)
 		return X_test_pos, Y_test_pos
@@ -160,7 +164,7 @@ class FraudDetection:
 					if (banned == "true"):
 						used_indices.append(index) # append User Id
 					curr_id = row[0]
-					curr = self.calculate_curr(row, curr_id, snaps, fbpost, ind_seats)
+					curr = self.calculate_curr(row[8], curr_id, snaps, fbpost, row[6], ind_seats)
 					# Split data - 50% put into train data, 50% into test data. 
 					res = self.allocate_test_train(X_train_pos, 
 													Y_train_pos, 
@@ -213,7 +217,8 @@ class FraudDetection:
 
 	def partial_train(self, X, Y):
 		"""
-		This fits the models in real time
+		This fits the models in real time. 
+		Call this when you're training the model in real time 
 		"""
 		for c in self.classifiers:
 			c.partial_fit(X, Y)
@@ -226,19 +231,25 @@ class FraudDetection:
 			c.fit(X_train, Y_train)
 		return 
 
-	def predict_banned(self, user_id, fbpost, snaps, seats, lastSRS):
+	def predict_banned(self, seats, fbp, snapsh,  lastSRS, ind_seats):
 		"""
 		The point of this is to be the API endpoint for checking if the user 
 		is banned or not.
 		The parameters are: 
-		1. Facebook posts (aggregated per user)
-		2. Number of snapshots (aggreagted per user)
-		3. The distribution of seats that are in the snapshot
-		3. LastSRSCount
+		Seats -> SRSString
+		FBP - Facebook posts (aggregated per user)
+		snapsh - Number of snapshots (aggreagted per user)
+		LastSRSCount
+		Ind_seat is a mapping of all the seats in the stadium -> number, where 
+		number is 0.
 		"""
-		curr = self.calculate_curr(row, curr_id, snaps, fbpost, ind_seats)
-		model_input.append(curr)  
-		is_banned = self.classifiers[0].predict(model_input)
+		seats_list = list(ind_seats.keys())
+		feature_vector = ['lastSRSCount', 'num_seats', 'num_fb'] + seats_list
+		X_test = pd.DataFrame(columns=feature_vector)
+		curr = self.calculate_final(seats, snapsh, fbp,lastSRS, ind_seats)
+		X_test.append(curr, ignore_index=True)
+		print(X_test)
+		is_banned = self.classifiers[0].predict(X_test)
 		# Check if this is banned. 
 		return is_banned 
 
@@ -252,7 +263,7 @@ class FraudDetection:
 			print("Time to predict in seconds")
 			print(end-start)
 
-	# now you do the API and then call itfrom ehre. 
+
 if __name__ == "__main__":
 	model = FraudDetection()
 
