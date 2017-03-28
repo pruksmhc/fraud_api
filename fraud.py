@@ -9,6 +9,8 @@ import ast
 import time
 from collections import defaultdict
 
+__author__ = "Yada Pruksachatkan"
+
 class FraudDetection:
 	"""
 	The goal of this class is to be able to detect whether or not a user is a fraud. 
@@ -224,42 +226,19 @@ class FraudDetection:
 			c.fit(X_train, Y_train)
 		return 
 
-	def ban_test(self, user_id ):
+	def predict_banned(self, user_id, fbpost, snaps, seats, lastSRS):
 		"""
 		The point of this is to be the API endpoint for checking if the user 
 		is banned or not.
-		This is a real time funciton that batch processes the data from the user 
-		and predicts if it is banned or not.
+		The parameters are: 
+		1. Facebook posts (aggregated per user)
+		2. Number of snapshots (aggreagted per user)
+		3. The distribution of seats that are in the snapshot
+		3. LastSRSCount
 		"""
-		model_input = []
-		scaler = StandardScaler()
-		event = pd.read_csv("eventusers.csv") 
-		event = event.loc[event['userId'] == user_id]	
-		seats = np.unique(event["SRSstring"])
-		ind_seats = {}
-		for i in seats:
-			curr = self.parse_seats(i)
-			ind_seats = {**ind_seats, **curr}
-
-		seat_list = list(ind_seats.keys())
-		feature_vector = ['lastSRSCount', 'num_seats', 'num_fb'] + seat_list
-		snaps = pd.read_csv(self.SNAPS_CSV)
-		fbpost= pd.read_csv(self.FBPOST_CSV)
-		with open(self.EVENTUSERS_CSV, "rt") as csvfile:
-			reader = csv.reader(csvfile, delimiter=',', quotechar='|')
-			index = 0
-			snaps = pd.read_csv(self.SNAPS_CSV)
-			fbpost= pd.read_csv(self.FBPOST_CSV) 
-			for row in reader:
-				if index == 0:
-					index += 1
-				elif index < self.NUM:
-					banned = row[-1]
-				curr_id = row[0]
-				curr = self.calculate_curr(row, curr_id, snaps, fbpost, ind_seats)
-				model_input.append(curr)  
+		curr = self.calculate_curr(row, curr_id, snaps, fbpost, ind_seats)
+		model_input.append(curr)  
 		is_banned = self.classifiers[0].predict(model_input)
-
 		# Check if this is banned. 
 		return is_banned 
 
