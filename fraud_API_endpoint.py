@@ -1,5 +1,5 @@
 """
-Brizi API for fraud detection.
+API for fraud detection.
 """
 __author__ = "Yada Pruksachatkan"
 
