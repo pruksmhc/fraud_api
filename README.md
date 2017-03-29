@@ -1,22 +1,13 @@
-First pass: 
-Neural netowrk, iwth all features in one network. 
 
-Way of representing data -> need to turn it into numeic inputs. 
-Current inputs: 
-SRSSequence, Snapshots,  
--Number of seats in SRS 
--Frequency of each seta in SRS
-Same for snapshots
+Documentation:
+Right now, there are 2 functions. 
+1. /fraud - pass in the features that are listed in the documentation in fraud_API_endpoint.py and 
+	get a 1.0 or 0.0 for banned or not 
+2. /partial_fit - if the model is wrong, you can train it in real time by feeding it the features 
+and the human-made classification
 
-Pad all 0s until it reaches the longest one. 
-
-Current progress:
--Trying neural net 1 - needs tweaking, need to increase sensitivity for cases when there 9
-update: 
--Now, neural netowrk has 100% accuracy for predicting a banned person, and 81% accuracy for predicting 
-when a pesron is not banned. 
-update: 
-08% average accuracy. 
--Currently, 93% accuracy
+In the future, this model will have to be trained for a few more sports games, with the flow being below. When a 
+suspicious box pops up, update the MongoDB, parse the data into the inputs to the model, and feed it through. 
+Then partially fit it to train the model in real time.
 
 ![Alt text](URM.jpg?raw=true "URM of prediction flow")

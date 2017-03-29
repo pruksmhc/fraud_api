@@ -23,29 +23,51 @@ app.model = FraudDetection()
 
 @app.route('/')
 def index():
-    return "It works!"
+    return
 
-# Here, pass API the information to predict
 @app.route('/fraud/', methods=['POST'])
 def new_one():
+	"""
+	The point of this is to be the API endpoint for checking if the user 
+	is banned or not.
+	The parameters are: 
+	Seats -> SRSString
+	FBP - Facebook posts (aggregated per user)
+	snapsh - Number of snapshots (aggreagted per user)
+	LastSRSCount
+	"""
 	print(request.json)
 	seats = request.json["seats"]
 	fbp = request.json['fbpost']
 	snapsh = request.json['snaps']
 	lastSRS = request.json['lastSRS']
-	ind_seats = request.json["ind_seats"]
-	res = app.model.predict_banned(seats, fbp, snapsh, lastSRS, ind_seats)
-	return jsonify({"result": ''})
+	res = app.model.predict_banned(seats, fbp, snapsh, lastSRS)
+	print("result")
+	print(res)
+	return jsonify({"result": res})
 	
-# Paritlaf fit, retrain model
+# Partial fit, retrain model
 @app.route('/partial_fit/', methods=['POST'])
 def partial_fit():
-	fbp = int(request.args["fbpost"])
-	snaps = int(request.args["snaps"])
-	seats = request.args["seats"]
-	lastSS = int(request.args["lastSRS"])
-	res = app.model.partial_fit(X,Y)
-	return jsonify({"result": res})
+	"""
+	The point of this is to be the API endpoint for training the model in 
+	real time.
+	The parameters are: 
+	Seats -> SRSString
+	FBP - Facebook posts (aggregated per user)
+	snapsh - Number of snapshots (aggreagted per user)
+	LastSRSCount
+	res - the human-generated label of whether the user was banned or not
+	"""
+	print("partial fit")
+	seats = request.json["seats"]
+	fbp = request.json['fbpost']
+	snapsh = request.json['snaps']
+	lastSRS = request.json['lastSRS']
+	res = request.json["res"]
+	print("done with all")
+	app.model.partial_train(seats, fbp, snapsh, lastSRS, res)
+	return jsonify({"result": ''})
 
 
 
