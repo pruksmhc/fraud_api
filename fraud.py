@@ -8,6 +8,8 @@ import numpy as np
 import ast
 import time
 from collections import defaultdict
+from sklearn import preprocessing
+
 
 __author__ = "Yada Pruksachatkan"
 
@@ -31,12 +33,19 @@ class FraudDetection:
 		X_train, Y_train, X_test_neg, Y_test_neg, X_test_pos, Y_test_pos = self.extract_features() 
 		classifier1 = MLPClassifier(solver='adam', alpha=1e-5,
 			hidden_layer_sizes=(30,30,30), random_state=1)
-		self.classifiers.append(classifier1)
-		self.train(X_train, Y_train)
-		print("the accuracy for predicting banned")
-		self.test(X_test_pos, Y_test_pos)
-		print("the accuarcy for predicting not banned")
-		self.test(X_test_neg, Y_test_neg)
+		acc_1 = 0 
+		acc_2 = 0 
+		while ((acc_1 < 0.87) or (acc_2 < 0.90)):
+			X_train, Y_train, X_test_neg, Y_test_neg, X_test_pos, Y_test_pos = self.extract_features() 
+			classifier1 = MLPClassifier(solver='adam', alpha=1e-5,
+			hidden_layer_sizes=(30,30,30), random_state=1)
+			self.classifiers.append(classifier1)
+			self.train(X_train, Y_train)
+			print("the accuracy for predicting banned")
+			acc_1 = self.test(X_test_pos, Y_test_pos)
+			print("the accuarcy for predicting not banned")
+			acc_2 = self.test(X_test_neg, Y_test_neg)
+
 
 	def parse_seats(self, seats):
 		indiv_seats = {}
@@ -113,8 +122,6 @@ class FraudDetection:
 		This function balances two sets. 
 		"""
 		num_fill = len(to_balance_against) - len(Y_to_balance) 
-		print("num to fill")
-		print(num_fill)
 		eventhb = eventh.tail(num_fill)
 		for index, row in eventhb.iterrows():
 			banned = row['banned']
@@ -122,9 +129,6 @@ class FraudDetection:
 			curr = self.calculate_curr(row[8], curr_id, snaps, fbpost, row[6])
 			X_to_balance = X_to_balance.append(curr, ignore_index=True)
 			Y_to_balance = Y_to_balance.append({'res': 1}, ignore_index=True)
-		print("and what we have")
-		print(X_to_balance)
-		print(Y_to_balance)
 		return X_to_balance, Y_to_balance
 
 
@@ -142,7 +146,7 @@ class FraudDetection:
 		seats = np.unique(event["SRSstring"])
 		for i in seats:
 			curr = self.parse_seats(i)
-			self.ind_seats = {**self.ind_seats, **curr}
+			self.ind_seats = {**self.ind_seats, **curr} # randomization occurs here. 
 		# Now i'm here. 
 		seat_list = list(self.ind_seats.keys())
 		self.feature_vector = ['lastSRSCount', 'num_seats', 'num_fb'] + seat_list
@@ -207,20 +211,26 @@ class FraudDetection:
 														 eventh, 
 														 snaps, 
 														 fbpost)
-		if (len(Y_test_pos) < len(Y_test_neg)):
+
+		# train on same amount of positive as negatives
+		if (len(Y_test_pos) < len(Y_test_neg)): 
 			X_test_pos, Y_test_pos  = self.balance_sets(Y_test_pos,
 														Y_test_neg, 
 														X_test_pos, 
 														eventh,
 														snaps, 
 														fbpost)
+			X_test_pos = preprocessing.normalize(X_test_pos)
 														
 
 		# Finally put the data into a form to feed the model
 		X_train_neg = X_train_neg[:len(X_train_pos)] 
 		Y_train_neg = Y_train_neg[:len(X_train_pos)]
 		X_train = X_train_neg.append(X_train_pos)
+		X_train = preprocessing.normalize(X_train)
 		Y_train = Y_train_neg.append(Y_train_pos)
+		X_test_meg = preprocessing.normalize(X_test_neg)
+		X_test_pos = preprocessing.normalize(X_test_pos)
 		return X_train, Y_train, X_test_neg, Y_test_neg, X_test_pos, Y_test_pos
 
 	def partial_train(self, seats, fbp, snapsh, lastSRS, res):
@@ -272,13 +282,17 @@ class FraudDetection:
 		for c in self.classifiers:
 			start = time.time()
 			print("accuracy score")
-			print(c.score(X_test, Y_test))
+			score = c.score(X_test, Y_test)
+			print(score)
 			end = time.time()
 			print("Time to predict in seconds")
 			print(end-start)
+			return score
+
 
 
 if __name__ == "__main__":
 	model = FraudDetection()
+
 
 

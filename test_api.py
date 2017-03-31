@@ -28,6 +28,7 @@ def test_api():
 	r = requests.post(url, json=data, allow_redirects=True)
 	print("fourth is")
 	print(r.text)
+	#  after running htis a few times,should change the last to predict 1.0
 	url = "http://127.0.0.1:5000/partial_fit/"
 	data = {'fbpost': 0, 'snaps' : 1, 'lastSRS': 1, 'seats': seats, 'res': 1}
 	r = requests.post(url, json=data, allow_redirects=True)
