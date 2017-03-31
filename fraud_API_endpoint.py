@@ -30,11 +30,15 @@ def new_one():
 	"""
 	The point of this is to be the API endpoint for checking if the user 
 	is banned or not.
+	For each slugDate
 	The parameters are: 
-	Seats -> SRSString
+	Seats -> SRSString, distribution of seats in SRSString, disregard the seat number. 
 	FBP - Facebook posts (aggregated per user)
 	snapsh - Number of snapshots (aggreagted per user)
-	LastSRSCount
+	LastSRSCount 
+	facebook.-> unique facebook
+	uniqueSnaps -> unique snapshots & fbp (just try this)
+	time -> slugDate
 	"""
 	print(request.json)
 	seats = request.json["seats"]
@@ -45,7 +49,7 @@ def new_one():
 	print("result")
 	print(res)
 	return jsonify({"result": res})
-	
+
 # Partial fit, retrain model
 @app.route('/partial_fit/', methods=['POST'])
 def partial_fit():

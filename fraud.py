@@ -27,15 +27,18 @@ class FraudDetection:
 	FBPOST_CSV = "facebookposts.csv"
 
 	def __init__(self):
+		"""
+		seat_histogram - map of unique seats
+		"""
 		self.classifiers = []
-		self.ind_seats = {}
+		self.seat_histogram = {}
 		self.feature_vector = []
 		X_train, Y_train, X_test_neg, Y_test_neg, X_test_pos, Y_test_pos = self.extract_features() 
 		classifier1 = MLPClassifier(solver='adam', alpha=1e-5,
 			hidden_layer_sizes=(30,30,30), random_state=1)
 		acc_1 = 0 
 		acc_2 = 0 
-		while ((acc_1 < 0.87) or (acc_2 < 0.90)):
+		while ((acc_1 < 0.9) or (acc_2 < 0.90)):
 			X_train, Y_train, X_test_neg, Y_test_neg, X_test_pos, Y_test_pos = self.extract_features() 
 			classifier1 = MLPClassifier(solver='adam', alpha=1e-5,
 			hidden_layer_sizes=(30,30,30), random_state=1)
@@ -48,6 +51,10 @@ class FraudDetection:
 
 
 	def parse_seats(self, seats):
+		"""
+		Output is an array of seats in SRSString
+		["100-U-403","100-U-405","100-U-406","100-U-407"]
+		"""
 		indiv_seats = {}
 		seat_num = seats.split(",")
 		for s in seat_num:
@@ -70,17 +77,22 @@ class FraudDetection:
 		"""
 		This function, from the CSVs, extracts the necessary data and puts it 
 		into curr, which is the form of the training data to be fed in. 
+		This outputs a vector for a current user that the classifier can train on 
+		- see test_api.py 
 		"""
 		snapsh = snaps.loc[snaps['userId'] == curr_id]	
 		fbp = fbpost.loc[fbpost['userId'] == curr_id]
 		seats = self.parse_seats(seats)
-		return self.calculate_final(seats, len(snapsh), len(fbp), lastSRSCount)
+		return self.calculate_curr_helper(seats, len(snapsh), len(fbp), lastSRSCount)
 
-	def calculate_final(self, seats_ordered, len_snapsh, len_fbp, lastSRSCount):
-		"""Ind_seats is a map : seat -> number
-			Seats is the string of seat SRS"""
-		local_seat_list = self.ind_seats
-		for s in seats_ordered:
+	def calculate_curr_helper(self, srs_seats, len_snapsh, len_fbp, lastSRSCount):
+		"""
+		Returns vector for entry in train + test data of the form 
+		data = {'fbpost': 0, 'snaps' : 3, 'lastSRS': 11, 
+		'seats': ["100-U-403","100-U-405","100-U-406","100-U-407"]}
+			"""
+		local_seat_list = self.seat_histogram
+		for s in srs_seats:
 			if local_seat_list.get(s) is None:
 				local_seat_list[s]  = 1
 			local_seat_list[s] += 1
@@ -123,10 +135,10 @@ class FraudDetection:
 		"""
 		num_fill = len(to_balance_against) - len(Y_to_balance) 
 		eventhb = eventh.tail(num_fill)
-		for index, row in eventhb.iterrows():
-			banned = row['banned']
-			curr_id = row['_id']
-			curr = self.calculate_curr(row[8], curr_id, snaps, fbpost, row[6])
+		for index, column in eventhb.iterrows():
+			banned = column['banned']
+			curr_id = column['_id']
+			curr = self.calculate_curr(column[8], curr_id, snaps, fbpost, column[6])
 			X_to_balance = X_to_balance.append(curr, ignore_index=True)
 			Y_to_balance = Y_to_balance.append({'res': 1}, ignore_index=True)
 		return X_to_balance, Y_to_balance
@@ -146,9 +158,9 @@ class FraudDetection:
 		seats = np.unique(event["SRSstring"])
 		for i in seats:
 			curr = self.parse_seats(i)
-			self.ind_seats = {**self.ind_seats, **curr} # randomization occurs here. 
+			self.seat_histogram = {**self.seat_histogram, **curr} # randomization occurs here. 
 		# Now i'm here. 
-		seat_list = list(self.ind_seats.keys())
+		seat_list = list(self.seat_histogram.keys())
 		self.feature_vector = ['lastSRSCount', 'num_seats', 'num_fb'] + seat_list
 
 		# Preprocessing and initialization of dataframes
@@ -169,15 +181,15 @@ class FraudDetection:
 			index = 0
 			snaps = pd.read_csv(self.SNAPS_CSV)
 			fbpost= pd.read_csv(self.FBPOST_CSV) 
-			for row in reader:
+			for column in reader:
 				if index == 0:
 					index += 1
 				elif index < self.NUM:
-					banned = row[-1]
+					banned = column[-1]
 					if (banned == "true"):
 						used_indices.append(index) # append User Id
-					curr_id = row[0]
-					curr = self.calculate_curr(row[8], curr_id, snaps, fbpost, row[6])
+					curr_id = column[0]
+					curr = self.calculate_curr(column[8], curr_id, snaps, fbpost, column[6])
 					# Split data - 50% put into train data, 50% into test data. 
 					res = self.allocate_test_train(X_train_pos, 
 													Y_train_pos, 
@@ -219,7 +231,7 @@ class FraudDetection:
 														X_test_pos, 
 														eventh,
 														snaps, 
-														fbpost)
+														fbpost,)
 			X_test_pos = preprocessing.normalize(X_test_pos)
 														
 
@@ -241,7 +253,7 @@ class FraudDetection:
 		print("train")
 		X_train= pd.DataFrame(columns=self.feature_vector)
 		print(seats)
-		curr = self.calculate_final(seats, snapsh, fbp, lastSRS)
+		curr = self.calculate_curr_helper(seats, snapsh, fbp, lastSRS)
 		print("2")
 		X_train= X_train.append(curr, ignore_index=True)
 		Y_train = pd.DataFrame()
@@ -271,7 +283,7 @@ class FraudDetection:
 		LastSRSCount
 		"""
 		X_test = pd.DataFrame(columns=self.feature_vector)
-		curr = self.calculate_final(seats, snapsh, fbp, lastSRS)
+		curr = self.calculate_curr_helper(seats, snapsh, fbp, lastSRS)
 		X_test = X_test.append(curr, ignore_index=True)
 		is_banned = self.classifiers[0].predict(X_test)
 		# Check if this is banned. 
