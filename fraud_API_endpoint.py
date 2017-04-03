@@ -33,21 +33,19 @@ def new_one():
 	For each slugDate
 	The parameters are: 
 	Seats -> SRSString, distribution of seats in SRSString, disregard the seat number. 
-	FBP - Facebook posts (aggregated per user)
-	snapsh - Number of snapshots (aggreagted per user)
+	FBP - Facebook posts (aggregated per user) for a certain date
+	snapsh - Number of snapshots (aggreagted per user for a certain date)
 	LastSRSCount 
-	facebook.-> unique facebook
+	uniqueFacebook.-> unique facebook
 	uniqueSnaps -> unique snapshots & fbp (just try this)
-	time -> slugDate
 	"""
-	print(request.json)
 	seats = request.json["seats"]
 	fbp = request.json['fbpost']
 	snapsh = request.json['snaps']
 	lastSRS = request.json['lastSRS']
-	res = app.model.predict_banned(seats, fbp, snapsh, lastSRS)
-	print("result")
-	print(res)
+	unique_fbp = request.json['uniqueFB']
+	unique_snaps = request.json['uniqueSnaps']
+	res = app.model.predict_banned(seats, fbp, snapsh, lastSRS, unique_fbp, unique_snaps)
 	return jsonify({"result": res})
 
 # Partial fit, retrain model
@@ -58,19 +56,19 @@ def partial_fit():
 	real time.
 	The parameters are: 
 	Seats -> SRSString
-	FBP - Facebook posts (aggregated per user)
-	snapsh - Number of snapshots (aggreagted per user)
+	FBP - Facebook posts (aggregated per user) for a certain date
+	snapsh - Number of snapshots (aggreagted per user) for a certain date
 	LastSRSCount
 	res - the human-generated label of whether the user was banned or not
 	"""
-	print("partial fit")
 	seats = request.json["seats"]
 	fbp = request.json['fbpost']
 	snapsh = request.json['snaps']
 	lastSRS = request.json['lastSRS']
 	res = request.json["res"]
-	print("done with all")
-	app.model.partial_train(seats, fbp, snapsh, lastSRS, res)
+	unique_fbp = request.json['uniqueFB']
+	unique_snaps = request.json['uniqueSnaps']
+	app.model.partial_train(seats, fbp, snapsh, lastSRS, res, unique_fbp, unique_snaps)
 	return jsonify({"result": ''})
 
 

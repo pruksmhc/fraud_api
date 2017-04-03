@@ -29,8 +29,9 @@ class FraudDetection:
 	def __init__(self):
 		"""
 		seat_histogram - map of unique seats
+		Fraud APi 
 		"""
-		self.classifiers = []
+		self.classifiers = [None]
 		self.seat_histogram = {}
 		self.feature_vector = []
 		X_train, Y_train, X_test_neg, Y_test_neg, X_test_pos, Y_test_pos = self.extract_features() 
@@ -38,16 +39,19 @@ class FraudDetection:
 			hidden_layer_sizes=(30,30,30), random_state=1)
 		acc_1 = 0 
 		acc_2 = 0 
-		while ((acc_1 < 0.9) or (acc_2 < 0.90)):
+		while ((acc_1 < 0.93) or (acc_2 < 0.93)):
 			X_train, Y_train, X_test_neg, Y_test_neg, X_test_pos, Y_test_pos = self.extract_features() 
 			classifier1 = MLPClassifier(solver='adam', alpha=1e-5,
 			hidden_layer_sizes=(30,30,30), random_state=1)
-			self.classifiers.append(classifier1)
+			self.classifiers[0] = classifier1
 			self.train(X_train, Y_train)
-			print("the accuracy for predicting banned")
 			acc_1 = self.test(X_test_pos, Y_test_pos)
-			print("the accuarcy for predicting not banned")
 			acc_2 = self.test(X_test_neg, Y_test_neg)
+		print("Accuracy")
+		print("For Banned")
+		print(acc_1)
+		print("For Not banned")
+		print(acc_2)
 
 
 	def parse_seats(self, seats):
@@ -62,6 +66,9 @@ class FraudDetection:
 			s = s.replace("]", "")
 			s = s.split("\"")
 			for se in s:
+				se = se.split("-")
+				se = se[:-1]
+				se = "-".join(se)
 				if ((se is not "\"") and (se is not " ") and (se is not "")):
 					if indiv_seats.get(se) is None:
 						indiv_seats[se] = True
@@ -73,31 +80,35 @@ class FraudDetection:
 	            current_dict[key] = definition
 	    return current_dict
 
-	def calculate_curr(self, seats, curr_id, snaps, fbpost, lastSRSCount):
+	def calculate_curr(self, seats, curr_id, snaps, fbpost, lastSRSCount, slugDate):
 		"""
 		This function, from the CSVs, extracts the necessary data and puts it 
 		into curr, which is the form of the training data to be fed in. 
 		This outputs a vector for a current user that the classifier can train on 
 		- see test_api.py 
 		"""
-		snapsh = snaps.loc[snaps['userId'] == curr_id]	
-		fbp = fbpost.loc[fbpost['userId'] == curr_id]
+		snapsh = snaps.loc[ (snaps['userId'] == curr_id) & (snaps["slugDate"] == slugDate) ]	
+		fbp = fbpost.loc[ (fbpost['userId'] == curr_id) & (fbpost["slugDate"] == slugDate) ]
+		unique_snaps = snapsh.drop_duplicates()
+		unique_fb = fbp.drop_duplicates()
 		seats = self.parse_seats(seats)
-		return self.calculate_curr_helper(seats, len(snapsh), len(fbp), lastSRSCount)
+		uniqueSnaps = len(unique_snaps)
+		uniqueFB = len(unique_fb)
+		return self.calculate_curr_helper(seats, len(snapsh), len(fbp), lastSRSCount,uniqueSnaps,uniqueFB)
 
-	def calculate_curr_helper(self, srs_seats, len_snapsh, len_fbp, lastSRSCount):
+	def calculate_curr_helper(self, srs_seats, len_snapsh, len_fbp, lastSRSCount, unique_snaps, unique_fb):
 		"""
 		Returns vector for entry in train + test data of the form 
 		data = {'fbpost': 0, 'snaps' : 3, 'lastSRS': 11, 
 		'seats': ["100-U-403","100-U-405","100-U-406","100-U-407"]}
-			"""
+		"""
 		local_seat_list = self.seat_histogram
 		for s in srs_seats:
 			if local_seat_list.get(s) is None:
 				local_seat_list[s]  = 1
 			local_seat_list[s] += 1
 		local_seat_list = self.replace_value_with_definition(True, 0, local_seat_list)
-		curr = { 'lastSRSCount': lastSRSCount,  'num_seats': len_snapsh, 'num_fb': len_fbp }
+		curr = { 'lastSRSCount': lastSRSCount,  'num_seats': len_snapsh, 'num_fb': len_fbp, 'n_u_fb': unique_fb, 'n_u_s':unique_snaps }
 		curr = {**curr, **local_seat_list}
 		return curr 
 
@@ -137,8 +148,9 @@ class FraudDetection:
 		eventhb = eventh.tail(num_fill)
 		for index, column in eventhb.iterrows():
 			banned = column['banned']
-			curr_id = column['_id']
-			curr = self.calculate_curr(column[8], curr_id, snaps, fbpost, column[6])
+			slugDate = column["slugDate"]
+			curr_id = column['userId']
+			curr = self.calculate_curr(column[8], curr_id, snaps, fbpost, column[6], slugDate)
 			X_to_balance = X_to_balance.append(curr, ignore_index=True)
 			Y_to_balance = Y_to_balance.append({'res': 1}, ignore_index=True)
 		return X_to_balance, Y_to_balance
@@ -186,10 +198,11 @@ class FraudDetection:
 					index += 1
 				elif index < self.NUM:
 					banned = column[-1]
+					slugDate = column[5]
 					if (banned == "true"):
 						used_indices.append(index) # append User Id
-					curr_id = column[0]
-					curr = self.calculate_curr(column[8], curr_id, snaps, fbpost, column[6])
+					curr_id = column[3]
+					curr = self.calculate_curr(column[8], curr_id, snaps, fbpost, column[6], slugDate)
 					# Split data - 50% put into train data, 50% into test data. 
 					res = self.allocate_test_train(X_train_pos, 
 													Y_train_pos, 
@@ -239,28 +252,35 @@ class FraudDetection:
 		X_train_neg = X_train_neg[:len(X_train_pos)] 
 		Y_train_neg = Y_train_neg[:len(X_train_pos)]
 		X_train = X_train_neg.append(X_train_pos)
-		X_train = preprocessing.normalize(X_train)
+		X_train = pd.DataFrame(preprocessing.normalize(X_train))
 		Y_train = Y_train_neg.append(Y_train_pos)
 		X_test_meg = preprocessing.normalize(X_test_neg)
 		X_test_pos = preprocessing.normalize(X_test_pos)
 		return X_train, Y_train, X_test_neg, Y_test_neg, X_test_pos, Y_test_pos
 
-	def partial_train(self, seats, fbp, snapsh, lastSRS, res):
+	def partial_train(self, seats, fbp, snapsh, lastSRS, res, uniqueFB, uniqueSnaps):
 		"""
 		This fits the models in real time. 
 		Call this when you're training the model in real time and the model screws up
 		"""
-		print("train")
-		X_train= pd.DataFrame(columns=self.feature_vector)
+		# tHis iw here this stuff is bieng at right now. 
+		print("PARTIAL TRAIN")
 		print(seats)
-		curr = self.calculate_curr_helper(seats, snapsh, fbp, lastSRS)
-		print("2")
-		X_train= X_train.append(curr, ignore_index=True)
+		print(fbp)
+		print(snapsh)
+		X_train = pd.DataFrame(columns=self.feature_vector)
+		curr = self.calculate_curr_helper(seats, snapsh, fbp, lastSRS, uniqueFB, uniqueSnaps)
+		print("After curr")
+		print(curr)
+		X_train = X_train.append(curr, ignore_index=True)
+		print(X_train)
+		X_train = X_train.as_matrix().reshape(1,-1)
 		Y_train = pd.DataFrame()
 		Y_train = Y_train.append({'res': res},ignore_index=True )
-		print("3")
+		Y_train = Y_train.as_matrix().reshape(1, -1)
+		print(Y_train)
+		print(X_train)
 		for c in self.classifiers:
-			print("train")
 			c = c.partial_fit(X_train, Y_train)
 		return
 
@@ -272,7 +292,7 @@ class FraudDetection:
 			c.fit(X_train, Y_train)
 		return 
 
-	def predict_banned(self, seats, fbp, snapsh, lastSRS):
+	def predict_banned(self, seats, fbp, snapsh, lastSRS, uniqueFB, uniqueSnaps):
 		"""
 		The point of this is to be the API endpoint for checking if the user 
 		is banned or not.
@@ -280,11 +300,12 @@ class FraudDetection:
 		Seats -> SRSString
 		FBP - Facebook posts (aggregated per user)
 		snapsh - Number of snapshots (aggreagted per user)
-		LastSRSCount
+		LastSRSCount 
 		"""
 		X_test = pd.DataFrame(columns=self.feature_vector)
-		curr = self.calculate_curr_helper(seats, snapsh, fbp, lastSRS)
+		curr = self.calculate_curr_helper(seats, snapsh, fbp, lastSRS, uniqueFB, uniqueSnaps)
 		X_test = X_test.append(curr, ignore_index=True)
+		X_test = X_test.as_matrix().reshape(1,-1)
 		is_banned = self.classifiers[0].predict(X_test)
 		# Check if this is banned. 
 		return is_banned[0]
@@ -293,12 +314,8 @@ class FraudDetection:
 		# Take the average 
 		for c in self.classifiers:
 			start = time.time()
-			print("accuracy score")
 			score = c.score(X_test, Y_test)
-			print(score)
 			end = time.time()
-			print("Time to predict in seconds")
-			print(end-start)
 			return score
 
 
