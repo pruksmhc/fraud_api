@@ -47,7 +47,7 @@ def test_api():
 		r = requests.post(url, json=data, allow_redirects=True)
 	print("fourth is")
 	print(r.text)
-	#  after running htis a few times,should change the last to predict 1.0
+	#  after running htis a few times,should change the second to last to predict 1.0
 
 
 if __name__ == "__main__":
