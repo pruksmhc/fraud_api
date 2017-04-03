@@ -39,7 +39,7 @@ class FraudDetection:
 			hidden_layer_sizes=(30,30,30), random_state=1)
 		acc_1 = 0 
 		acc_2 = 0 
-		while ((acc_1 < 0.93) or (acc_2 < 0.93)):
+		while ((acc_1 < 0.92) or (acc_2 < 0.92)):
 			X_train, Y_train, X_test_neg, Y_test_neg, X_test_pos, Y_test_pos = self.extract_features() 
 			classifier1 = MLPClassifier(solver='adam', alpha=1e-5,
 			hidden_layer_sizes=(30,30,30), random_state=1)
