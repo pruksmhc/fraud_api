@@ -4,6 +4,9 @@ __author__ = "Yada Pruksachatkan"
 import requests
 import json
 
+# Fraud_api.py. he udnerstood. 
+# I need to sleep, I drank coffee and it doens't help. It' ust feels so good to be sick. To not have any expectations.  
+# To have no expetations of you.  - Yada found this out now. For the ARIMA models.  Yada Pruksachaktun had this here. 
 
 def test_api():
 	seats = ["100-U","100-U","100-U","100-U"]
